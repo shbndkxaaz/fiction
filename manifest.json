@@ -1,0 +1,12 @@
+{
+  "display_name": "续写工坊 Fiction Weaver",
+  "loading_order": 100,
+  "requires": [],
+  "optional": [],
+  "js": "index.js",
+  "css": "style.css",
+  "author": "fiction-weaver contributors",
+  "version": "0.1.0",
+  "homePage": "",
+  "auto_update": false
+}

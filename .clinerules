@@ -1,0 +1,5 @@
+# Agent Skills Instructions
+
+1. Before designing architecture, writing code, or refactoring, you MUST automatically read and adhere to the guidelines specified in:
+   - Path: `~/.skills/karpathy-guidelines/SKILL.md` (or the local path where your skill is located)
+2. Always apply the simplicity, small-scale iteration, and validation principles defined in `karpathy-guidelines` without needing explicit user reminders.

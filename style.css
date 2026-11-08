@@ -1,0 +1,113 @@
+/* 续写工坊 · 面板样式（只作用于 .fw- 前缀的类，避免污染酒馆其它界面） */
+
+.fw-panel {
+    --fw-gap: 8px;
+    font-size: 13px;
+}
+
+.fw-panel .fw-section {
+    margin: 10px 0;
+    padding: 8px 10px;
+    border: 1px solid var(--SmartThemeBorderColor, #444);
+    border-radius: 6px;
+}
+
+.fw-panel .fw-section-title {
+    font-weight: 600;
+    margin-bottom: 6px;
+    opacity: 0.9;
+}
+
+.fw-panel .fw-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--fw-gap);
+    margin-bottom: 6px;
+}
+
+.fw-panel .fw-row:last-child {
+    margin-bottom: 0;
+}
+
+.fw-panel .fw-hint {
+    opacity: 0.6;
+    font-size: 11px;
+}
+
+.fw-panel .fw-msg {
+    min-height: 1.2em;
+    font-size: 12px;
+    opacity: 0.85;
+    white-space: pre-wrap;
+}
+
+.fw-panel .fw-msg.is-error {
+    color: #e07070;
+}
+
+.fw-panel .fw-msg.is-ok {
+    color: #6fbf73;
+}
+
+.fw-panel .fw-preview {
+    max-height: 220px;
+    overflow: auto;
+    white-space: pre-wrap;
+    word-break: break-word;
+    font-size: 11px;
+    line-height: 1.45;
+    background: rgba(0, 0, 0, 0.15);
+    border-radius: 4px;
+    padding: 6px 8px;
+    margin: 6px 0 0;
+}
+
+.fw-panel .fw-preview:empty {
+    display: none;
+}
+
+.fw-panel .fw-branches {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin: 6px 0;
+}
+
+.fw-panel .fw-branch {
+    border: 1px solid var(--SmartThemeBorderColor, #444);
+    border-radius: 6px;
+    padding: 6px 8px;
+}
+
+.fw-panel .fw-branch-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    font-size: 11px;
+    opacity: 0.75;
+    margin-bottom: 4px;
+}
+
+.fw-panel .fw-branch-text {
+    max-height: 160px;
+    overflow: auto;
+    white-space: pre-wrap;
+    word-break: break-word;
+    font-size: 12px;
+    line-height: 1.5;
+}
+
+.fw-panel .fw-stats {
+    font-size: 11px;
+    opacity: 0.75;
+    white-space: pre-wrap;
+    margin-top: 8px;
+    padding-top: 6px;
+    border-top: 1px dashed var(--SmartThemeBorderColor, #444);
+}
+
+.fw-panel textarea#fw-draft {
+    width: 100%;
+    resize: vertical;
+}
