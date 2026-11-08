@@ -140,11 +140,17 @@
             </div>
 
             <div class="fw-field">
+              <div class="fw-label">未来大纲滑窗（注入几个「还没演到」的节点）</div>
               <div class="fw-row">
-                <label class="checkbox_label fw-wide">
-                  <input type="checkbox" id="fw-future-enabled" />
-                  <span>把「下一个剧情节点」也注入当预告（能防写偏，但算剧透）</span>
-                </label>
+                <select id="fw-lookahead" class="text_pole">
+                  <option value="0">0 · 完全不给（自由发挥，最适合原创对话）</option>
+                  <option value="1">1 · 只给下一节点（推荐，最省 token）</option>
+                  <option value="2">2 · 平衡：方向明确又留白</option>
+                  <option value="3">3 · 强约束：贴着原著大事件走</option>
+                  <option value="4">4 · 很强</option>
+                  <option value="5">5 · 最强（照原著大纲推进）</option>
+                </select>
+                <span class="fw-hint">0 = 不剧透；1~2 个约 300~600 token；数字越大越不容易写偏，也越占预算</span>
               </div>
             </div>
 
@@ -207,10 +213,30 @@
             </div>
 
             <div class="fw-field">
+              <div class="fw-row">
+                <input id="fw-outline-btn" class="menu_button" type="button" value="💡 启发后续大纲" />
+                <span class="fw-hint">卡文时用它：按当前剧情给 3 条走向，挑一条就能直接开工</span>
+              </div>
+              <div class="fw-msg" id="fw-outline-msg"></div>
+              <div class="fw-outlines" id="fw-outlines"></div>
+            </div>
+
+            <div class="fw-field">
               <div class="fw-label">定向要求（可留空）</div>
               <div class="fw-row">
                 <input id="fw-instruction" class="text_pole" type="text" placeholder="例：让男主发现线索，但别立刻揭晓；这段不要打斗" />
               </div>
+            </div>
+
+            <div class="fw-field">
+              <div class="fw-row">
+                <label class="checkbox_label fw-wide">
+                  <input type="checkbox" id="fw-spice-mode" />
+                  <span>💋 色情加料 / 幕间模式（锁住主线：不跳时间、不推进节点，只把当前场景写透）</span>
+                </label>
+              </div>
+              <div class="fw-row fw-tag-row" id="fw-spice-tags"></div>
+              <div class="fw-hint">点标签会拼进上面的「定向要求」；勾了模式后这次续写只在当前场景里展开</div>
             </div>
 
             <div class="fw-field">
@@ -254,6 +280,15 @@
                 你的 TXT 被清洗成「剧情节点 + 角色设定 + 世界设定 + 总结 + 伏笔」，<br />
                 聊天时按 token 预算裁好后并进**第一条 system 提示词**（不新增 system 消息，Claude / Gemini 才不会报错），<br />
                 续写时用的是同一份内容 —— 所以演的和写的不会互相打脸。
+              </div>
+            </div>
+
+            <div class="fw-field">
+              <div class="fw-label">三个进阶开关（写不下去时最喜欢用的）</div>
+              <div class="fw-hint fw-help-list">
+                · ③ 未来大纲滑窗：0 = 完全不剧透、自由发挥；1~2 = 平衡（推荐）；3~5 = 强约束，贴着原著大事件走<br />
+                · ⑤ 💡 启发后续大纲：按当前剧情给 3 条走向（主线 / 感情 / 张力），可「采纳为节点」或「带入续写要求」<br />
+                · ⑤ 💋 幕间模式：勾上后不跳时间、不推进节点，只把当前场景写细；下面的标签点一下就拼进定向要求
               </div>
             </div>
 

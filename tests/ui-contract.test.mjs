@@ -88,4 +88,23 @@ group('E. 工作台（全屏界面）契约', () => {
         indexSrc.includes('function showPane(') && readPlugin('style.css').includes('.fw-nav-item.is-active'));
 });
 
+group('F. 进阶开关契约（滑窗 / 启发大纲 / 幕间模式）', () => {
+    const optionValues = [...templateSrc.matchAll(/<select id="fw-lookahead"[\s\S]*?<\/select>/g)]
+        .flatMap(block => [...block[0].matchAll(/<option value="(\d)"/g)].map(m => m[1]));
+
+    eq('F1 滑窗有 0~5 六个档位', optionValues, ['0', '1', '2', '3', '4', '5']);
+    ok('F2 旧的布尔开关已经被滑窗取代',
+        templateIds.has('fw-lookahead') && !templateIds.has('fw-future-enabled'));
+    ok('F3 index.js 按节点数量读滑窗（不再绑旧开关的 id）',
+        indexSrc.includes("num('fw-lookahead'") && !indexSrc.includes("'fw-future-enabled'"));
+    ok('F4 启发大纲的按钮 / 提示 / 结果容器都在',
+        templateIds.has('fw-outline-btn') && templateIds.has('fw-outline-msg') && templateIds.has('fw-outlines'));
+    ok('F5 大纲按钮接了事件', indexSrc.includes("on('fw-outline-btn', 'click'"));
+    ok('F6 幕间模式开关 + 标签容器都在',
+        templateIds.has('fw-spice-mode') && templateIds.has('fw-spice-tags'));
+    ok('F7 幕间模式进了续写 prompt', indexSrc.includes('interlude: c.spiceMode === true'));
+    ok('F8 标签按钮按标签库渲染', indexSrc.includes('FW_SPICE_TAGS.forEach'));
+    ok('F9 采纳大纲走 fwAddNode（不手搓节点）', indexSrc.includes('fwAddNode(story'));
+});
+
 finish('ui-contract.test.mjs');

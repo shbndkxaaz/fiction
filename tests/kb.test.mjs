@@ -13,6 +13,7 @@ const {
     fwParseCleanResult,
     fwMergeCleanResult,
     fwUpsertForeshadow,
+    fwAddNode,
     fwBuildSummaryBlock,
     fwSelectSummariesToMerge,
     fwGetStageNodes,
@@ -182,6 +183,27 @@ group('F. 阶段查询与统计', () => {
     eq('F8 统计节点数', stats.nodes, 2);
     eq('F9 统计分段进度', [stats.chunks, stats.chunksDone], [1, 1]);
     eq('F10 统计进度阶段', stats.progress, 1);
+});
+
+group('G. 手工新增节点（采纳大纲用）', () => {
+    const story = fwCreateStory({ title: '大纲书' });
+    fwIngestText(story, '第一章 开端\n他走进山门。', { chunkSize: 2000 });
+    fwMergeCleanResult(story, 1, { compressed: '', nodes: [{ title: '入门', body: '拜入青云宗' }], chars: [], world: [] });
+    story.progress = { stageIdx: 2, nodeIdx: 0 };
+
+    const node = fwAddNode(story, { title: '雨夜避雨', body: '两人被雨困在旧宅柴房' });
+    eq('G1 节点进库', story.nodes.length, 2);
+    eq('G2 挂到当前阶段', node.stageIdx, 2);
+    eq('G3 借用最后一段的 chunkIdx（只用于排序）', node.chunkIdx, 1);
+    eq('G4 默认是主线', node.lane, 'main');
+    eq('G5 记下来源', node.source, 'manual');
+    ok('G6 有稳定 id', String(node.id).startsWith('node_'));
+    eq('G7 新阶段里能看到它', fwGetStageNodes(story, 2).map(n => n.title), ['雨夜避雨']);
+    eq('G8 空内容不建节点', fwAddNode(story, { title: '  ', body: '' }), null);
+    eq('G9 空内容没污染节点表', story.nodes.length, 2);
+    eq('G10 统计跟着涨', fwStoryStats(story).nodes, 2);
+    eq('G11 可以显式指定来源', fwAddNode(story, { title: '来自大纲', body: 'x', source: 'outline' }).source, 'outline');
+    eq('G12 没有书时安全返回', fwAddNode(null, { title: 'x' }), null);
 });
 
 finish('kb.test.mjs');

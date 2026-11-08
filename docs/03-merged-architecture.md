@@ -116,7 +116,7 @@ story = {
 ```
 CHAT_COMPLETION_PROMPT_READY (eventData.chat)
   → fwBuildInjectionBlocks(story, { progress, recentMessages, settings })
-      [角色人设 / 世界设定 / 当前阶段剧情 / 未来预告 / 分层总结 / 长伏笔 / 文风]
+      [角色人设 / 世界设定 / 当前阶段剧情 / 未来大纲滑窗(0~5 节点) / 分层总结 / 长伏笔 / 文风]
   → fwAssembleInjection(blocks, { maxTokens })      // 预算裁剪，边界截断，记录 omitted
   → fwInsertIntoChatMessages(eventData.chat, {...}) // 默认并进第一条 system
 ```
@@ -173,15 +173,16 @@ CHAT_COMPLETION_PROMPT_READY (eventData.chat)
 | **M2** | 注入管线（角色/世界/当前阶段剧情/总结）+ 面板显示「本轮发了什么」 | 聊天时注入生效，预览与实际一致 | 🟡 逻辑已通；待与真酒馆请求比对 |
 | **M3** | 续写管线（`generateRaw` + 多分支 + 定向续写） | 能生成 1~3 分支、选中插入、结果进正文 | 🟡 逻辑已通；待真模型手感调 prompt |
 | **M4** | 记忆闭环（自动分章 → 增量总结 → 小总结合并大总结；伏笔状态流转） | 写 1 万字后仍能接上前文 | ⬜ 未开始（`fwPickSummariesToMerge` 等纯函数已就位） |
-| **M5** | 阶段/进度/未来预告/召回屏蔽 + 向量召回（移植 NI vector-system） | 长篇不跑偏；屏蔽生效 | ⬜ 未开始（阶段/屏蔽/未来预告已有基础实现） |
+| **M5** | 阶段/进度/未来预告/召回屏蔽 + 向量召回（移植 NI vector-system） | 长篇不跑偏；屏蔽生效 | ⬜ 未开始（阶段/屏蔽/未来大纲滑窗已有基础实现） |
 | **M6** | 界面重做：抽屉只留入口卡片 + 全屏工作台（6 分页，手机铺满） | 手机上不再挤；`ui-contract` 的分页契约全绿 | ✅ 已完成（v0.2.0） |
+| **M7** | 写作手感三件套：未来大纲滑窗（0~5 节点）/ 💡 启发后续大纲（3 条走向，可采纳为节点）/ 💋 幕间（加料）模式 + 标签库 | 滑窗 0~5 档都注入正确；大纲能采纳成节点；幕间模式的 prompt 带「不跳时间/不推进节点」硬约束 | ✅ 已完成（v0.3.0） |
 
-**M0 的验收是怎么验的**（不靠手点）：`tests/` 下 8 个文件、306 条断言，零依赖、`exit code` 即门禁。
+**M0 的验收是怎么验的**（不靠手点）：`tests/` 下 9 个文件、388 条断言，零依赖、`exit code` 即门禁。
 
-- `text / kb / injection / clean-api`：纯函数单测。
-- `ui-contract`：模板里的 `fw-*` id ↔ `index.js` 的引用、设置项双向同步、分页契约（`fw-nav-x` ↔ `fw-pane-x` ↔ `FW_PANES`）、manifest 字段。
+- `text / kb / injection / prompts / clean-api`：纯函数单测。
+- `ui-contract`：模板里的 `fw-*` id ↔ `index.js` 的引用、设置项双向同步、分页契约（`fw-nav-x` ↔ `fw-pane-x` ↔ `FW_PANES`）、进阶开关契约（滑窗档位 / 大纲按钮 / 幕间开关）、manifest 字段。
 - `wiring`：`index.js` 的每个 import 都在 `lib/` 里真实存在；`lib/` 不许依赖酒馆模块；关键函数都在且不重复定义。
-- `smoke`：假 DOM + 桩子把 `index.js` 真跑一遍 —— 开/关工作台 → 切分页 → 建书 → 导入 TXT → 清洗 → 预览 → 发送前注入 → 推进度 → 续写分支 → 润色 → 草稿落盘 → 导出，共 61 条。
+- `smoke`：假 DOM + 桩子把 `index.js` 真跑一遍 —— 开/关工作台 → 切分页 → 建书 → 导入 TXT → 清洗 → 预览 → 发送前注入 → 推进度 → 续写分支 → 润色 → 草稿落盘 → 导出 → 滑窗/启发大纲/标签/幕间续写，共 75 条。
 
 ## 8. 风险与须知
 

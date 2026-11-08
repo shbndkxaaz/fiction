@@ -8,11 +8,15 @@ import { pluginUrl } from './_paths.mjs';
 const {
     FW_INJECTION_MAX_TOKENS_DEFAULT,
     FW_INJECT_POSITION,
+    FW_LOOKAHEAD_MAX,
     fwBuildInjectionBlocks,
     fwAssembleInjection,
     fwInsertIntoChatMessages,
     fwBuildContinuationPrompt,
     fwParseBranches,
+    fwResolveLookahead,
+    fwPickLookaheadNodes,
+    fwBuildLookaheadText,
 } = await import(pluginUrl('lib/injection.js'));
 const { fwCreateStory, fwIngestText, fwMergeCleanResult, fwUpsertForeshadow } = await import(pluginUrl('lib/kb.js'));
 
@@ -72,6 +76,34 @@ group('A. 注入块构造', () => {
     eq('A14 默认不注入后续剧情', fwBuildInjectionBlocks(story, { progress: story.progress }).some(b => b.key === 'future'), false);
     truthy('A15 开启后注入下一个节点', fwBuildInjectionBlocks(story, { progress: story.progress, settings: { futureNodeEnabled: true } })
         .find(b => b.key === 'future')?.text.includes('夜谈'));
+
+    // 未来大纲滑窗：0~5 个节点（数量 = 约束强度 = token 成本）
+    const futureAt = (n, nodeIdx) => fwBuildInjectionBlocks(story, {
+        progress: { stageIdx: 1, nodeIdx },
+        settings: { lookaheadNodes: n },
+    }).find(b => b.key === 'future');
+
+    eq('A16 滑窗 0 = 完全不注入后文', futureAt(0, 0), undefined);
+    truthy('A17 滑窗 1 = 只给「下一节点」', futureAt(1, 0).text.includes('下一节点') && !futureAt(1, 0).text.includes('后续节点'));
+    truthy('A18 滑窗 2 = 下一节点 + 后续节点',
+        futureAt(2, -1).text.includes('下一节点') && futureAt(2, -1).text.includes('后续节点'));
+    truthy('A19 带「仅作方向参考 / 勿过早完结」的框',
+        futureAt(2, -1).text.includes('后续剧情指引') && futureAt(2, -1).text.includes('勿过早完结'));
+    eq('A20 已经演到最后一个节点 → 没有可给的后文', futureAt(2, 1), undefined);
+    eq('A21 老设置 futureNodeEnabled=true 等价于滑窗 1', fwResolveLookahead({ futureNodeEnabled: true }), 1);
+    eq('A22 滑窗数值超范围被夹住', fwResolveLookahead({ lookaheadNodes: 99 }), FW_LOOKAHEAD_MAX);
+    eq('A23 滑窗数值是负数时按 0 算', fwResolveLookahead({ lookaheadNodes: -3 }), 0);
+    eq('A24 新设置优先于老布尔开关', fwResolveLookahead({ lookaheadNodes: 0, futureNodeEnabled: true }), 0);
+    eq('A25 取节点从当前进度的下一个开始',
+        fwPickLookaheadNodes([{ title: 'a' }, { title: 'b' }, { title: 'c' }], 0, 2).map(n => n.title), ['b', 'c']);
+    eq('A26 进度 -1 时从第一个节点开始',
+        fwPickLookaheadNodes([{ title: 'a' }, { title: 'b' }], -1, 1).map(n => n.title), ['a']);
+    eq('A27 剩余节点不够时只返回有的',
+        fwPickLookaheadNodes([{ title: 'a' }, { title: 'b' }], 0, 5).length, 1);
+    eq('A28 空列表安全返回', fwPickLookaheadNodes(null, 0, 3), []);
+    truthy('A29 事件简要被截短（省 token）',
+        fwBuildLookaheadText([{ title: 't', body: 'x'.repeat(200) }]).includes('…'));
+    eq('A30 没有节点时文本为空', fwBuildLookaheadText([]), '');
 
     // 已收线的伏笔不再注入（合并节点时自动登记的「玉佩」也要一起收线）
     story.memory.foreshadows.forEach(f => { f.status = 'paid-off'; });
@@ -181,6 +213,15 @@ group('D. 续写 prompt 与分支', () => {
         eq('D11 没分隔符时视为单分支', fwParseBranches('只有一段正文').length, 1);
         eq('D12 空输入返回空数组', fwParseBranches('').length, 0);
     }
+
+    // 幕间（加料）模式：锁死主线推进
+    const interlude = fwBuildContinuationPrompt({ assembled: '【角色人设】\n林昭', beforeText: '正文', targetWords: 500, interlude: true });
+    truthy('D13 幕间模式带「严禁跳过时间」', interlude.includes('严禁跳过时间'));
+    truthy('D14 幕间模式的任务改成「不要推进剧情」', interlude.includes('不要推进剧情'));
+    eq('D15 普通模式不带禁令', prompt.includes('严禁跳过时间'), false);
+    truthy('D16 幕间模式仍保留已写正文', interlude.includes('正文'));
+    truthy('D17 幕间模式仍可叠加定向要求',
+        fwBuildContinuationPrompt({ assembled: '', beforeText: '正文', instruction: '别急', interlude: true }).includes('【本次续写要求】'));
 });
 
 finish('injection.test.mjs');

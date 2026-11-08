@@ -1,6 +1,6 @@
 {
   "name": "fiction-weaver",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "private": true,
   "type": "module",
   "description": "续写工坊 Fiction Weaver —— SillyTavern 扩展：分层总结 + 剧情知识库注入 + 编辑器续写",

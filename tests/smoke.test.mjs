@@ -9,7 +9,7 @@ import fs from 'node:fs';
 import { pluginUrl, readPlugin, pluginPath } from './_paths.mjs';
 import { group, ok, eq, truthy, finish } from './_assert.mjs';
 import { installDom, fire, flush, storage } from './_dom.mjs';
-import { __context } from './_stubs/st-extensions.mjs';
+import { __context, extension_settings } from './_stubs/st-extensions.mjs';
 import { __emit, chat_metadata, event_types } from './_stubs/st-script.mjs';
 
 const templateSrc = readPlugin('template.html');
@@ -278,6 +278,72 @@ await step('H. 草稿落盘与导出', async () => {
     eq('H1 草稿自动存进书里', storedStory().draft, '这段写得自然多了。');
     fire(el('fw-export'), 'click');
     ok('H2 导出按钮给出反馈', String(el('fw-clean-msg').textContent).includes('已导出'));
+});
+
+await step('I. 进阶开关：未来大纲滑窗 / 启发大纲 / 幕间标签', async () => {
+    // 1) 滑窗设置落盘（0~5 个节点）
+    el('fw-lookahead').value = '2';
+    fire(el('fw-lookahead'), 'change');
+    eq('I1 滑窗设置存进 extension_settings', extension_settings['fiction-weaver'].lookaheadNodes, 2);
+
+    // 2) 滑窗真的进了注入
+    fire(el('fw-preview-btn'), 'click');
+    ok('I2 预览里出现「后续剧情指引」', String(el('fw-preview').textContent).includes('后续剧情指引'));
+
+    // 3) 启发后续大纲
+    apiReplies.push([
+        '===大纲===',
+        '[主线] 旧宅探符',
+        '梗概：林昭夜里潜回旧宅查符纸。',
+        '===大纲===',
+        '[感情] 灯笼下的沉默',
+        '沈砚先开口替林昭挡下责难。',
+        '===大纲===',
+        '[张力] 雨夜避雨',
+        '梗概：两人被雨困在旧宅柴房，靠得极近。',
+    ].join('\n'));
+    fire(el('fw-outline-btn'), 'click');
+    await flush(6);
+
+    const outlineBox = el('fw-outlines');
+    eq('I3 渲染出三条大纲', outlineBox.children.length, 3);
+    ok('I4 卡片标出类型与标题',
+        String(outlineBox.children[0].children[0].children[0].textContent).includes('主线｜旧宅探符'));
+    ok('I5 卡片正文被渲染', String(outlineBox.children[2].children[1].textContent).includes('旧宅柴房'));
+
+    outlineBox.children[2].children[0].children[1].children[0].click();
+    await flush(2);
+    ok('I6 「采纳为节点」把大纲写进书里', storedStory().nodes.some(n => n.title === '雨夜避雨'));
+    ok('I7 采纳后有反馈', String(el('fw-outline-msg').textContent).includes('采纳'));
+
+    outlineBox.children[0].children[0].children[1].children[1].click();
+    ok('I8 「带入续写要求」写进定向要求', String(el('fw-instruction').value).includes('旧宅探符'));
+
+    // 4) 幕间模式 + 加料标签
+    const tagBox = el('fw-spice-tags');
+    ok('I9 标签按钮渲染出来了', tagBox.children.length >= 5);
+    tagBox.children[0].click();
+    ok('I10 点标签拼进定向要求', String(el('fw-instruction').value).includes('言语挑逗'));
+
+    el('fw-spice-mode').checked = true;
+    fire(el('fw-spice-mode'), 'change');
+    eq('I11 幕间开关被存下来', extension_settings['fiction-weaver'].spiceMode, true);
+
+    const prompts = [];
+    __context.generateRaw = async ({ prompt }) => {
+        prompts.push(prompt);
+        return '幕间正文：她把灯放在门槛上。';
+    };
+    el('fw-branch-count').value = '1';
+    fire(el('fw-branch-count'), 'change');
+    el('fw-draft').value = '林昭推开门，屋里很暗。';
+    fire(el('fw-continue-btn'), 'click');
+    await flush(5);
+
+    ok('I12 幕间模式下提示词带禁令', prompts.length === 1 && prompts[0].includes('严禁跳过时间'));
+    ok('I13 幕间模式下任务改成不推进剧情', prompts[0].includes('不要推进剧情'));
+    ok('I14 幕间模式下仍有已写正文', prompts[0].includes('林昭推开门'));
+    ok('I15 幕间模式下仍带知识库', prompts[0].includes('断桥夜会'));
 });
 
 fs.rmSync(TMP, { force: true });

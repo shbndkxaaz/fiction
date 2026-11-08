@@ -331,6 +331,68 @@
     line-height: 1.6;
 }
 
+/* 大纲卡片（⑤ 启发后续大纲）：和分支卡片同一套视觉，但按钮在标题行右侧 */
+.fw-outlines {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.fw-outlines:empty {
+    display: none;
+}
+
+.fw-outline {
+    border: 1px solid var(--SmartThemeBorderColor, #444);
+    border-radius: 6px;
+    padding: 8px 10px;
+}
+
+.fw-outline-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    flex-wrap: wrap;
+    font-size: 12px;
+    margin-bottom: 6px;
+}
+
+.fw-outline-text {
+    max-height: 160px;
+    overflow: auto;
+    white-space: pre-wrap;
+    word-break: break-word;
+    font-size: 12.5px;
+    line-height: 1.6;
+    opacity: 0.9;
+}
+
+/* 加料标签：一排小按钮，点一下拼进「定向要求」 */
+.fw-tag-row {
+    flex-wrap: wrap;
+    gap: 6px;
+}
+
+.fw-tag {
+    font-size: 11px;
+    padding: 2px 8px;
+    border-radius: 10px;
+    border: 1px solid var(--SmartThemeBorderColor, #444);
+    background: transparent;
+    cursor: pointer;
+    opacity: 0.85;
+}
+
+.fw-tag:hover {
+    opacity: 1;
+    border-color: var(--SmartThemeQuoteColor, #7aa2f7);
+}
+
+.fw-row select.text_pole {
+    min-width: 240px;
+}
+
 .fw-stats {
     font-size: 11px;
     opacity: 0.78;

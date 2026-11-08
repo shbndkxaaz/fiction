@@ -31,6 +31,7 @@ import {
     fwIngestText,
     fwParseCleanResult,
     fwMergeCleanResult,
+    fwAddNode,
     fwStoryStats,
 } from './lib/kb.js';
 
@@ -47,8 +48,12 @@ import {
 import { fwCallChatCompletion } from './lib/clean-api.js';
 import {
     FW_CLEAN_SYSTEM_PROMPT,
+    FW_SPICE_TAGS,
+    fwAppendTag,
     fwBuildCleanUserMessage,
     fwBuildPolishMessages,
+    fwBuildOutlineMessages,
+    fwParseOutlines,
 } from './lib/prompts.js';
 
 const FW_EXT_NAME = 'fiction-weaver';
@@ -63,7 +68,10 @@ const FW_DEFAULT_SETTINGS = {
     injPos: FW_INJECT_POSITION.IN_PROMPT,
     injDepth: 4,
     injMaxTokens: FW_INJECTION_MAX_TOKENS_DEFAULT,
-    futureNodeEnabled: false,
+    /** 未来大纲滑窗：0 = 不剧透（自由发挥），1~5 = 给几个「还没演到」的节点 */
+    lookaheadNodes: 0,
+    /** 幕间（「色情加料」）模式：不推进节点，只把当前场景写透 */
+    spiceMode: false,
     branchCount: 1,
     targetWords: 800,
 };
@@ -90,7 +98,15 @@ function errText(e) {
 }
 
 function loadSettings() {
-    extension_settings[FW_EXT_NAME] = Object.assign({}, FW_DEFAULT_SETTINGS, extension_settings[FW_EXT_NAME] || {});
+    const stored = extension_settings[FW_EXT_NAME] || {};
+    const merged = Object.assign({}, FW_DEFAULT_SETTINGS, stored);
+    // 迁移：v0.2 之前只有布尔开关 futureNodeEnabled（等价于「只看 1 个节点」），
+    // 老存档不迁移的话，「开了预告」的人升级后会突然变成完全不注入。
+    if (stored.lookaheadNodes === undefined && stored.futureNodeEnabled === true) merged.lookaheadNodes = 1;
+    if (!Number.isFinite(parseInt(merged.lookaheadNodes, 10))) merged.lookaheadNodes = 0;
+    merged.lookaheadNodes = Math.max(0, Math.min(5, parseInt(merged.lookaheadNodes, 10) || 0));
+    delete merged.futureNodeEnabled;
+    extension_settings[FW_EXT_NAME] = merged;
 }
 
 /** 从 UI 读回设置（只读存在的元素，缺了就用旧值，避免半截 DOM 覆盖配置） */
@@ -111,7 +127,8 @@ function readSettingsFromUI() {
     c.injPos = el('fw-inj-pos')?.value || c.injPos;
     c.injDepth = num('fw-inj-depth', c.injDepth, 0, 30);
     c.injMaxTokens = num('fw-inj-budget', c.injMaxTokens, 256, 200000);
-    c.futureNodeEnabled = el('fw-future-enabled')?.checked ?? c.futureNodeEnabled;
+    c.lookaheadNodes = num('fw-lookahead', c.lookaheadNodes, 0, 5);
+    c.spiceMode = el('fw-spice-mode')?.checked ?? c.spiceMode;
     c.branchCount = num('fw-branch-count', c.branchCount, 1, 3);
     c.targetWords = num('fw-target-words', c.targetWords, 100, 4000);
     saveSettingsDebounced();
@@ -134,7 +151,8 @@ function syncSettingsToUI() {
     set('fw-inj-pos', c.injPos);
     set('fw-inj-depth', c.injDepth);
     set('fw-inj-budget', c.injMaxTokens);
-    set('fw-future-enabled', c.futureNodeEnabled);
+    set('fw-lookahead', c.lookaheadNodes);
+    set('fw-spice-mode', c.spiceMode);
     set('fw-branch-count', c.branchCount);
     set('fw-target-words', c.targetWords);
 }
@@ -310,7 +328,7 @@ function buildInjection() {
     const blocks = fwBuildInjectionBlocks(story, {
         progress: getProgress(),
         settings: {
-            futureNodeEnabled: cfg().futureNodeEnabled,
+            lookaheadNodes: cfg().lookaheadNodes,
             summaryKeepRecent: 3,
         },
         contextText: recentContextText(),
@@ -480,6 +498,135 @@ function renderBranches(branches) {
     });
 }
 
+// ───────────────────── 幕间（加料）模式：标签库 ─────────────────────
+
+/**
+ * 标签只拼进「定向要求」，不改书 —— 想撤掉直接把那几个字删了。
+ * 标签库本体在 lib/prompts.js（改文案不用动模板）。
+ */
+function applySpiceTag(tag) {
+    const box = el('fw-instruction');
+    if (!box) return;
+    box.value = fwAppendTag(box.value, tag);
+    setMsg('fw-write-msg', `已加上「${tag}」。`);
+}
+
+/** 标签按钮运行时生成：模板里只留一个容器，加标签不用改 HTML */
+function renderSpiceTags() {
+    const box = el('fw-spice-tags');
+    if (!box) return;
+    box.innerHTML = '';
+    FW_SPICE_TAGS.forEach(tag => {
+        const btn = document.createElement('button');
+        btn.className = 'fw-tag';
+        btn.type = 'button';
+        btn.textContent = tag;
+        btn.addEventListener('click', () => applySpiceTag(tag));
+        box.appendChild(btn);
+    });
+}
+
+// ───────────────────── 启发后续大纲（卡文时的救命按钮） ─────────────────────
+
+/** 把一条大纲「采纳为节点」：挂到当前阶段末尾，立刻进入下一轮注入 */
+function adoptOutlineAsNode(item) {
+    if (!story) return setMsg('fw-outline-msg', '先新建/选择一本书。', 'error');
+    const progress = getProgress();
+    const node = fwAddNode(story, {
+        title: item?.title,
+        body: item?.body || item?.text,
+        stageIdx: progress.stageIdx,
+        lane: 'main',
+        source: 'outline',
+    });
+    if (!node) return setMsg('fw-outline-msg', '这条大纲是空的，没什么可采纳。', 'error');
+    fwSaveStory(story);
+    renderStats();
+    renderPreview();
+    setMsg('fw-outline-msg', `已采纳为第 ${progress.stageIdx} 阶段的节点「${node.title}」。`, 'ok');
+}
+
+/** 把一条大纲灌进「定向要求」：不动知识库，只影响这一次续写 */
+function useOutlineAsInstruction(item) {
+    const box = el('fw-instruction');
+    if (!box) return;
+    const text = [String(item?.title || '').trim(), String(item?.body || item?.text || '').trim()]
+        .filter(Boolean)
+        .join('：');
+    box.value = fwTakeTail(text, 400);
+    setMsg('fw-outline-msg', '已带入「定向要求」，回上面点「AI 续写」就用它。', 'ok');
+}
+
+/** 渲染大纲卡片：每条两个动作（采纳为节点 / 带入续写要求） */
+function renderOutlines(items) {
+    const box = el('fw-outlines');
+    if (!box) return;
+    box.innerHTML = '';
+    (items || []).forEach(item => {
+        const wrap = document.createElement('div');
+        wrap.className = 'fw-outline';
+
+        const head = document.createElement('div');
+        head.className = 'fw-outline-head';
+        const label = document.createElement('span');
+        label.textContent = `${item.kind}｜${item.title}`;
+
+        const actions = document.createElement('span');
+        const adoptBtn = document.createElement('button');
+        adoptBtn.className = 'menu_button';
+        adoptBtn.type = 'button';
+        adoptBtn.textContent = '采纳为节点';
+        adoptBtn.addEventListener('click', () => adoptOutlineAsNode(item));
+
+        const useBtn = document.createElement('button');
+        useBtn.className = 'menu_button';
+        useBtn.type = 'button';
+        useBtn.textContent = '带入续写要求';
+        useBtn.addEventListener('click', () => useOutlineAsInstruction(item));
+
+        actions.append(adoptBtn, useBtn);
+        head.append(label, actions);
+
+        const body = document.createElement('div');
+        body.className = 'fw-outline-text';
+        body.textContent = item.body || item.text || '';
+
+        wrap.append(head, body);
+        box.appendChild(wrap);
+    });
+}
+
+/**
+ * 让模型按「当前已写到的剧情」给 3 条走向。
+ * 用的是清洗那套 API（酒馆当前模型多半挂着角色卡，不适合干这种结构化活）。
+ */
+async function runOutline() {
+    if (!story) return setMsg('fw-outline-msg', '先新建/选择一本书。', 'error');
+    if (!apiReady()) return setMsg('fw-outline-msg', '先填清洗 API 地址和模型（启发大纲也用它）。', 'error');
+
+    const assembled = buildInjection();
+    const recentText = lastRealText(2500);
+    if (!assembled?.text && !recentText) {
+        return setMsg('fw-outline-msg', '既没有知识库也没有已写正文，先导入 TXT 或先聊几句。', 'error');
+    }
+
+    setMsg('fw-outline-msg', '正在按当前剧情构思 3 条后续走向…');
+    try {
+        const raw = await callPluginApi(fwBuildOutlineMessages({
+            assembled: assembled?.text || '',
+            recentText,
+            count: 3,
+        }), { maxTokens: 2000, temperature: 0.8 });
+        const items = fwParseOutlines(raw, 4);
+        if (!items.length) throw new Error('模型没有返回可用的大纲');
+        renderOutlines(items);
+        setMsg('fw-outline-msg', `已给出 ${items.length} 条走向：挑一条「采纳为节点」，或「带入续写要求」。`, 'ok');
+    } catch (e) {
+        console.warn('[续写工坊] 启发大纲失败：', e);
+        setMsg('fw-outline-msg', `启发大纲失败：${errText(e)}`, 'error');
+    }
+}
+
 async function runContinuation() {
     if (!story) return setMsg('fw-write-msg', '先新建/选择一本书。', 'error');
     const ctx = getContext();
@@ -502,12 +649,13 @@ async function runContinuation() {
         beforeText,
         instruction,
         targetWords: c.targetWords,
+        interlude: c.spiceMode === true,
     });
     if (branchCount > 1) {
         prompt += `\n\n【分支要求】请给出 ${branchCount} 个走向不同的版本，版本之间用一行「===分支===」分隔。`;
     }
 
-    setMsg('fw-write-msg', `正在续写（${c.targetWords} 字${branchCount > 1 ? ` × ${branchCount} 分支` : ''}）…`);
+    setMsg('fw-write-msg', `正在续写（${c.targetWords} 字${branchCount > 1 ? ` × ${branchCount} 分支` : ''}${c.spiceMode ? '，幕间模式：不推进剧情' : ''}）…`);
     try {
         const raw = await ctx.generateRaw({ prompt, systemPrompt: '' });
         const branches = fwParseBranches(raw, branchCount);
@@ -671,8 +819,8 @@ function bindPanelEvents() {
     // 设置项：改完就存
     [
         'fw-enabled', 'fw-chunk-size', 'fw-api-url', 'fw-api-key', 'fw-api-model',
-        'fw-inj-pos', 'fw-inj-depth', 'fw-inj-budget', 'fw-future-enabled',
-        'fw-branch-count', 'fw-target-words',
+        'fw-inj-pos', 'fw-inj-depth', 'fw-inj-budget', 'fw-lookahead',
+        'fw-spice-mode', 'fw-branch-count', 'fw-target-words',
     ].forEach(id => on(id, 'change', readSettingsFromUI));
     on('fw-inj-budget', 'input', readSettingsFromUI);
 
@@ -735,6 +883,7 @@ function bindPanelEvents() {
     });
 
     // 续写
+    on('fw-outline-btn', 'click', () => { void runOutline(); });
     on('fw-continue-btn', 'click', () => { void runContinuation(); });
     on('fw-polish-btn', 'click', () => { void runPolish(); });
     on('fw-draft-clear', 'click', () => {
@@ -782,6 +931,7 @@ async function init() {
 
     syncSettingsToUI();
     bindPanelEvents();
+    renderSpiceTags();
     showPane('kb');
     document.addEventListener('keydown', evt => {
         if (evt?.key === 'Escape' && isWorkshopOpen()) closeWorkshop();
