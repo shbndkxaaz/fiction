@@ -64,4 +64,28 @@ group('D. manifest 契约', () => {
     ok('D4 版本号是字符串', typeof manifest.version === 'string');
 });
 
+group('E. 工作台（全屏界面）契约', () => {
+    // 分页面板 fw-pane-x 与导航按钮 fw-nav-x 必须成对出现，否则点了没反应
+    const paneIds = [...templateSrc.matchAll(/id="fw-pane-([a-z]+)"/g)].map(m => m[1]);
+    const navIds = [...templateSrc.matchAll(/id="fw-nav-([a-z]+)"/g)].map(m => m[1]);
+
+    truthy('E1 模板里有分页面板', paneIds.length >= 4, paneIds.join(', '));
+    eq('E2 每个分页都有对应的导航按钮', navIds, paneIds);
+
+    const paneListMatch = indexSrc.match(/const FW_PANES = \[([^\]]+)\]/);
+    truthy('E3 index.js 声明了 FW_PANES', Boolean(paneListMatch));
+    const paneList = [...(paneListMatch?.[1] || '').matchAll(/'([a-z]+)'/g)].map(m => m[1]);
+    eq('E4 FW_PANES 与模板分页一一对应（顺序决定导航顺序）', paneList, paneIds);
+
+    ok('E5 有打开 / 关闭工作台的函数',
+        /function openWorkshop\(/.test(indexSrc) && /function closeWorkshop\(/.test(indexSrc));
+    ok('E6 工作台被挪到 body（否则抽屉一关全屏层也跟着不见）',
+        indexSrc.includes('document.body.appendChild(overlay)'));
+    ok('E7 抽屉里保留入口卡片',
+        templateIds.has('fw-launcher') && templateIds.has('fw-open-workshop') && templateIds.has('fw-launcher-info'));
+    ok('E8 支持 Esc 关闭', indexSrc.includes("=== 'Escape'"));
+    ok('E9 分页切换走 showPane（样式表里也定义了 .is-active）',
+        indexSrc.includes('function showPane(') && readPlugin('style.css').includes('.fw-nav-item.is-active'));
+});
+
 finish('ui-contract.test.mjs');

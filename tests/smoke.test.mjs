@@ -101,6 +101,29 @@ group('A. 加载与面板挂载', () => {
 });
 
 
+group('A2. 工作台开关与分页', () => {
+    const body = globalThis.document.body;
+    ok('A8 工作台挂在 body 上（不是塞在抽屉里）',
+        body.children.some(child => child.id === 'fw-workshop'));
+    ok('A9 抽屉里没有工作台本体', !settingsHost.children.some(child => child.id === 'fw-workshop'));
+    ok('A10 默认不打开工作台', el('fw-workshop').style.display !== 'flex');
+
+    fire(el('fw-open-workshop'), 'click');
+    eq('A11 点「打开工作台」后可见', el('fw-workshop').style.display, 'flex');
+    eq('A12 默认停在书库页', el('fw-pane-kb').style.display, 'block');
+    eq('A13 其它分页默认隐藏', el('fw-pane-write').style.display, 'none');
+
+    fire(el('fw-nav-write'), 'click');
+    eq('A14 点导航切到续写页', el('fw-pane-write').style.display, 'block');
+    eq('A15 上一个分页随之隐藏', el('fw-pane-kb').style.display, 'none');
+    ok('A16 导航高亮跟着切', String(el('fw-nav-write').className).includes('is-active')
+        && !String(el('fw-nav-kb').className).includes('is-active'));
+
+    fire(el('fw-nav-kb'), 'click');
+    fire(el('fw-close-workshop'), 'click');
+    eq('A17 关闭后隐藏', el('fw-workshop').style.display, 'none');
+});
+
 // ── 异步用例块（group() 是同步的，这里要 await 事件处理器） ──
 async function step(title, fn) {
     console.log(`\n[${title}]`);
@@ -145,6 +168,8 @@ await step('B. 建书与导入 TXT', async () => {
     ok('B6 提示行报告导入结果', String(el('fw-clean-msg').textContent).includes('已导入'));
     ok('B7 统计区显示书名', String(el('fw-stats').textContent).includes('断桥记'));
     ok('B8 还没清洗时标记为未完成', s.chunks.filter(c => c.done).length === 0);
+    ok('B9 入口卡片摘要跟着更新', String(el('fw-launcher-info').textContent).includes('断桥记'));
+    ok('B10 工作台标题栏显示当前书', String(el('fw-workshop-sub').textContent).includes('断桥记'));
 });
 
 await step('C. 清洗一段', async () => {

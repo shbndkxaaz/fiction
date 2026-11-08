@@ -1,113 +1,348 @@
-/* 续写工坊 · 面板样式（只作用于 .fw- 前缀的类，避免污染酒馆其它界面） */
+/* 续写工坊 · 样式
+ *
+ * 两套界面：
+ *   1. .fw-launcher   —— 酒馆扩展设置抽屉里的小卡片（只有状态 + 一个按钮）
+ *   2. .fw-workshop   —— 全屏工作台（init 时被移到 <body>，所以选择器不能挂在 .fw-panel 下）
+ * 所有类都带 fw- 前缀，避免污染酒馆其它界面。
+ */
+
+/* ═══════════════ ① 抽屉里的入口卡片 ═══════════════ */
 
 .fw-panel {
     --fw-gap: 8px;
     font-size: 13px;
 }
 
-.fw-panel .fw-section {
-    margin: 10px 0;
+.fw-launcher {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
     padding: 8px 10px;
     border: 1px solid var(--SmartThemeBorderColor, #444);
     border-radius: 6px;
 }
 
-.fw-panel .fw-section-title {
-    font-weight: 600;
-    margin-bottom: 6px;
-    opacity: 0.9;
-}
-
-.fw-panel .fw-row {
+.fw-launcher-row {
     display: flex;
-    flex-wrap: wrap;
     align-items: center;
-    gap: var(--fw-gap);
-    margin-bottom: 6px;
+    justify-content: space-between;
+    gap: 8px;
+    flex-wrap: wrap;
 }
 
-.fw-panel .fw-row:last-child {
+.fw-launcher-info {
+    font-size: 11px;
+    line-height: 1.5;
+    opacity: 0.72;
+    white-space: pre-wrap;
+    word-break: break-word;
+}
+
+/* ═══════════════ ② 全屏工作台 ═══════════════ */
+
+.fw-workshop {
+    display: none; /* openWorkshop() 改成 flex */
+    position: fixed;
+    inset: 0;
+    z-index: 30000;
+    align-items: center;
+    justify-content: center;
+    font-size: 13px;
+    line-height: 1.5;
+    color: var(--SmartThemeBodyColor, #ddd);
+}
+
+.fw-workshop-mask {
+    position: absolute;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.55);
+}
+
+.fw-workshop-box {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    width: min(1080px, 94vw);
+    height: min(800px, 92vh);
+    background: var(--SmartThemeBlurTintColor, rgba(20, 20, 22, 0.98));
+    border: 1px solid var(--SmartThemeBorderColor, #444);
+    border-radius: 10px;
+    box-shadow: 0 14px 44px rgba(0, 0, 0, 0.55);
+    overflow: hidden;
+}
+
+.fw-workshop-head {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+    padding: 10px 14px;
+    border-bottom: 1px solid var(--SmartThemeBorderColor, #444);
+    flex: 0 0 auto;
+}
+
+.fw-workshop-title {
+    font-weight: 700;
+    font-size: 15px;
+    white-space: nowrap;
+}
+
+.fw-workshop-sub {
+    flex: 1 1 120px;
+    min-width: 0;
+    font-size: 12px;
+    opacity: 0.7;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.fw-head-toggle {
+    flex: 0 0 auto;
+    white-space: nowrap;
+}
+
+.fw-workshop-body {
+    display: flex;
+    flex: 1 1 auto;
+    min-height: 0;
+}
+
+.fw-nav {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    flex: 0 0 148px;
+    padding: 10px 8px;
+    border-right: 1px solid var(--SmartThemeBorderColor, #444);
+    overflow-y: auto;
+}
+
+.fw-nav-item {
+    text-align: left;
+    padding: 8px 10px;
+    border: 1px solid transparent;
+    border-radius: 6px;
+    background: transparent;
+    color: inherit;
+    font-size: 13px;
+    cursor: pointer;
+}
+
+.fw-nav-item:hover {
+    background: rgba(255, 255, 255, 0.07);
+}
+
+.fw-nav-item.is-active {
+    background: rgba(255, 255, 255, 0.13);
+    border-color: var(--SmartThemeBorderColor, #444);
+    font-weight: 600;
+}
+
+.fw-panes {
+    flex: 1 1 auto;
+    min-width: 0;
+    padding: 12px 16px;
+    overflow-y: auto;
+}
+
+.fw-pane {
+    display: none; /* showPane() 每次只点亮一个 */
+}
+
+.fw-workshop-foot {
+    flex: 0 0 auto;
+    max-height: 110px;
+    padding: 8px 14px;
+    border-top: 1px solid var(--SmartThemeBorderColor, #444);
+    overflow-y: auto;
+}
+
+/* 手机 / 窄屏：工作台铺满整屏，导航改成横向标签条 */
+@media (max-width: 760px) {
+    .fw-workshop-box {
+        width: 100vw;
+        height: 100vh;
+        height: 100dvh;
+        border: none;
+        border-radius: 0;
+    }
+
+    .fw-workshop-body {
+        flex-direction: column;
+    }
+
+    .fw-nav {
+        flex: 0 0 auto;
+        flex-direction: row;
+        gap: 6px;
+        padding: 8px;
+        border-right: none;
+        border-bottom: 1px solid var(--SmartThemeBorderColor, #444);
+        overflow-x: auto;
+        overflow-y: hidden;
+    }
+
+    .fw-nav-item {
+        white-space: nowrap;
+        padding: 6px 10px;
+    }
+
+    .fw-panes {
+        padding: 10px;
+    }
+}
+
+/* ═══════════════ ③ 分页里的通用零件 ═══════════════ */
+
+.fw-pane-title {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+    flex-wrap: wrap;
+    font-size: 14px;
+    font-weight: 600;
+    margin-bottom: 10px;
+    padding-bottom: 6px;
+    border-bottom: 1px dashed var(--SmartThemeBorderColor, #444);
+}
+
+.fw-field {
+    margin-bottom: 14px;
+}
+
+.fw-field:last-child {
     margin-bottom: 0;
 }
 
-.fw-panel .fw-hint {
-    opacity: 0.6;
-    font-size: 11px;
+.fw-label {
+    font-size: 12px;
+    font-weight: 600;
+    opacity: 0.85;
+    margin-bottom: 6px;
 }
 
-.fw-panel .fw-msg {
+.fw-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--fw-gap, 8px);
+    margin-bottom: 6px;
+}
+
+.fw-row:last-child {
+    margin-bottom: 0;
+}
+
+.fw-row > .text_pole {
+    min-width: 120px;
+    max-width: 420px;
+}
+
+.fw-row input[type="number"].text_pole {
+    width: 100px;
+    min-width: 80px;
+}
+
+.fw-wide {
+    white-space: normal;
+    line-height: 1.45;
+}
+
+.fw-hint {
+    font-size: 11px;
+    opacity: 0.62;
+    line-height: 1.55;
+}
+
+.fw-help-list {
+    display: block;
+    padding: 8px 10px;
+    background: rgba(0, 0, 0, 0.18);
+    border-radius: 6px;
+    font-size: 12px;
+    opacity: 0.8;
+}
+
+.fw-msg {
     min-height: 1.2em;
     font-size: 12px;
     opacity: 0.85;
     white-space: pre-wrap;
+    word-break: break-word;
 }
 
-.fw-panel .fw-msg.is-error {
+.fw-msg.is-error {
     color: #e07070;
+    opacity: 1;
 }
 
-.fw-panel .fw-msg.is-ok {
+.fw-msg.is-ok {
     color: #6fbf73;
+    opacity: 1;
 }
 
-.fw-panel .fw-preview {
+.fw-preview {
+    max-height: 300px;
+    overflow: auto;
+    white-space: pre-wrap;
+    word-break: break-word;
+    font-size: 11px;
+    line-height: 1.5;
+    background: rgba(0, 0, 0, 0.22);
+    border-radius: 6px;
+    padding: 8px 10px;
+    margin: 6px 0 0;
+}
+
+.fw-preview:empty {
+    display: none;
+}
+
+.fw-branches {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.fw-branch {
+    border: 1px solid var(--SmartThemeBorderColor, #444);
+    border-radius: 6px;
+    padding: 8px 10px;
+}
+
+.fw-branch-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    flex-wrap: wrap;
+    font-size: 11px;
+    opacity: 0.78;
+    margin-bottom: 6px;
+}
+
+.fw-branch-text {
     max-height: 220px;
     overflow: auto;
     white-space: pre-wrap;
     word-break: break-word;
+    font-size: 12.5px;
+    line-height: 1.6;
+}
+
+.fw-stats {
     font-size: 11px;
-    line-height: 1.45;
-    background: rgba(0, 0, 0, 0.15);
-    border-radius: 4px;
-    padding: 6px 8px;
-    margin: 6px 0 0;
-}
-
-.fw-panel .fw-preview:empty {
-    display: none;
-}
-
-.fw-panel .fw-branches {
-    display: flex;
-    flex-direction: column;
-    gap: 6px;
-    margin: 6px 0;
-}
-
-.fw-panel .fw-branch {
-    border: 1px solid var(--SmartThemeBorderColor, #444);
-    border-radius: 6px;
-    padding: 6px 8px;
-}
-
-.fw-panel .fw-branch-head {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    font-size: 11px;
-    opacity: 0.75;
-    margin-bottom: 4px;
-}
-
-.fw-panel .fw-branch-text {
-    max-height: 160px;
-    overflow: auto;
+    opacity: 0.78;
     white-space: pre-wrap;
     word-break: break-word;
-    font-size: 12px;
-    line-height: 1.5;
+    line-height: 1.55;
 }
 
-.fw-panel .fw-stats {
-    font-size: 11px;
-    opacity: 0.75;
-    white-space: pre-wrap;
-    margin-top: 8px;
-    padding-top: 6px;
-    border-top: 1px dashed var(--SmartThemeBorderColor, #444);
-}
-
-.fw-panel textarea#fw-draft {
+.fw-pane textarea#fw-draft {
     width: 100%;
+    box-sizing: border-box;
+    min-height: 160px;
     resize: vertical;
+    line-height: 1.6;
 }

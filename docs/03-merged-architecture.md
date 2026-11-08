@@ -132,6 +132,26 @@ CHAT_COMPLETION_PROMPT_READY (eventData.chat)
 **两者共用 `fwBuildInjectionBlocks`**：聊天里注入的「当前阶段剧情 + 人设 + 世界 + 总结 + 伏笔」，
 在续写时就是同一个数组 —— 不再出现「酒馆里演的和编辑器里写的不是同一本书」的割裂。
 
+### 5.3 界面（v0.2 起：抽屉入口卡片 + 全屏工作台）
+
+上游两个项目的面板都是「往扩展设置抽屉里一长条排下来」，手机上必然挤。v0.2 把界面拆成两层：
+
+| 层 | 位置 | 内容 | 为什么这么做 |
+|---|---|---|---|
+| 入口卡片 | `#extensions_settings2` 抽屉里 | 标题 + 「打开工作台」按钮 + 两行状态摘要 | 抽屉是「设置」语境，只该有入口，不该有工作流 |
+| 全屏工作台 | `document.body` | 标题栏（书名/进度/总开关/关闭）+ 左侧 6 个分页 + 底部状态栏 | 写作/注入是有流程的活，需要整屏空间 |
+
+两条实现约定（改 UI 必须遵守，`ui-contract` 测试会盯着）：
+
+1. **工作台必须挂在 `body` 上**，不能留在抽屉的 DOM 里 —— 抽屉一关闭（或容器带 `overflow`/`transform`），
+   `position: fixed` 的子元素会跟着被隐藏或裁切。初始化时 `holder.innerHTML = html` 之后立刻
+   `document.body.appendChild(el('fw-workshop'))`。
+2. **分页三处必须对齐**：`template.html` 的 `fw-nav-x`、`fw-pane-x`，以及 `index.js` 的 `FW_PANES` 数组
+   （顺序即导航顺序）。漏一处就是「点了没反应」这种静默 bug，所以用静态扫描钉死。
+
+其余取舍：分页切换用 `style.display` 而不是 `classList`（假 DOM 里也能跑）；状态文案只有 `renderStats()` 一处生成，
+同时写入口卡片、标题栏和底栏，避免三处各写一份、数字打架。样式全部 `fw-` 前缀 + `@media (max-width: 760px)` 时铺满整屏。
+
 ## 6. 存储与预算基线（沿用上游默认值，别自己发明）
 
 | 项 | 值 | 来源 |
@@ -154,13 +174,14 @@ CHAT_COMPLETION_PROMPT_READY (eventData.chat)
 | **M3** | 续写管线（`generateRaw` + 多分支 + 定向续写） | 能生成 1~3 分支、选中插入、结果进正文 | 🟡 逻辑已通；待真模型手感调 prompt |
 | **M4** | 记忆闭环（自动分章 → 增量总结 → 小总结合并大总结；伏笔状态流转） | 写 1 万字后仍能接上前文 | ⬜ 未开始（`fwPickSummariesToMerge` 等纯函数已就位） |
 | **M5** | 阶段/进度/未来预告/召回屏蔽 + 向量召回（移植 NI vector-system） | 长篇不跑偏；屏蔽生效 | ⬜ 未开始（阶段/屏蔽/未来预告已有基础实现） |
+| **M6** | 界面重做：抽屉只留入口卡片 + 全屏工作台（6 分页，手机铺满） | 手机上不再挤；`ui-contract` 的分页契约全绿 | ✅ 已完成（v0.2.0） |
 
-**M0 的验收是怎么验的**（不靠手点）：`tests/` 下 8 个文件、277 条断言，零依赖、`exit code` 即门禁。
+**M0 的验收是怎么验的**（不靠手点）：`tests/` 下 8 个文件、306 条断言，零依赖、`exit code` 即门禁。
 
 - `text / kb / injection / clean-api`：纯函数单测。
-- `ui-contract`：模板里的 `fw-*` id ↔ `index.js` 的引用、设置项双向同步、manifest 字段。
+- `ui-contract`：模板里的 `fw-*` id ↔ `index.js` 的引用、设置项双向同步、分页契约（`fw-nav-x` ↔ `fw-pane-x` ↔ `FW_PANES`）、manifest 字段。
 - `wiring`：`index.js` 的每个 import 都在 `lib/` 里真实存在；`lib/` 不许依赖酒馆模块；关键函数都在且不重复定义。
-- `smoke`：假 DOM + 桩子把 `index.js` 真跑一遍 —— 建书 → 导入 TXT → 清洗 → 预览 → 发送前注入 → 推进度 → 续写分支 → 润色 → 草稿落盘 → 导出，共 48 条。
+- `smoke`：假 DOM + 桩子把 `index.js` 真跑一遍 —— 开/关工作台 → 切分页 → 建书 → 导入 TXT → 清洗 → 预览 → 发送前注入 → 推进度 → 续写分支 → 润色 → 草稿落盘 → 导出，共 61 条。
 
 ## 8. 风险与须知
 

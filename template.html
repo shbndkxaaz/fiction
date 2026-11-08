@@ -1,128 +1,279 @@
 <div class="fw-panel">
-  <div class="inline-drawer">
-    <div class="inline-drawer-toggle inline-drawer-header">
+
+  <!-- ═══════════ 抽屉里的入口卡片：只放状态 + 一个按钮 ═══════════
+       所有设置都在全屏工作台里，这里刻意保持「一眼能看完」 -->
+  <div class="fw-launcher" id="fw-launcher">
+    <div class="fw-launcher-row">
       <b>续写工坊 Fiction Weaver</b>
-      <div class="inline-drawer-icon fa-solid fa-circle-chevron-down down"></div>
+      <input id="fw-open-workshop" class="menu_button" type="button" value="打开工作台" />
     </div>
-    <div class="inline-drawer-content">
+    <div class="fw-launcher-info" id="fw-launcher-info">正在加载…</div>
+  </div>
 
-      <!-- 总开关 -->
-      <div class="fw-row">
-        <label class="checkbox_label">
+  <!-- ═══════════ 全屏工作台（init 时会被移到 body，避免被抽屉裁掉） ═══════════ -->
+  <div class="fw-workshop" id="fw-workshop">
+    <div class="fw-workshop-mask" id="fw-workshop-mask"></div>
+
+    <div class="fw-workshop-box">
+      <div class="fw-workshop-head">
+        <span class="fw-workshop-title">续写工坊 · 工作台</span>
+        <span class="fw-workshop-sub" id="fw-workshop-sub">未选书</span>
+        <label class="checkbox_label fw-head-toggle">
           <input type="checkbox" id="fw-enabled" />
-          <span>启用（关闭后完全不注入、不发请求）</span>
+          <span>启用注入</span>
         </label>
+        <input id="fw-close-workshop" class="menu_button" type="button" value="关闭（Esc）" />
       </div>
 
-      <!-- 书管理 -->
-      <div class="fw-section">
-        <div class="fw-section-title">① 这本书</div>
-        <div class="fw-row">
-          <select id="fw-story-select" class="text_pole"></select>
-          <input id="fw-story-title" class="text_pole" type="text" placeholder="新书名" style="max-width:150px" />
-          <input id="fw-story-create" class="menu_button" type="button" value="新建" />
-          <input id="fw-story-delete" class="menu_button" type="button" value="删除" />
-        </div>
-        <div class="fw-row">
-          <input id="fw-export" class="menu_button" type="button" value="导出全部" />
-          <input id="fw-import-file" type="file" accept=".json" style="display:none" />
-          <input id="fw-import-btn" class="menu_button" type="button" value="导入 JSON" />
+      <div class="fw-workshop-body">
+        <!-- ── 左侧导航：一个分页只做一件事 ── -->
+        <nav class="fw-nav">
+          <button class="fw-nav-item" id="fw-nav-kb" type="button">① 书库</button>
+          <button class="fw-nav-item" id="fw-nav-clean" type="button">② 清洗</button>
+          <button class="fw-nav-item" id="fw-nav-inject" type="button">③ 注入</button>
+          <button class="fw-nav-item" id="fw-nav-progress" type="button">④ 进度</button>
+          <button class="fw-nav-item" id="fw-nav-write" type="button">⑤ 续写</button>
+          <button class="fw-nav-item" id="fw-nav-help" type="button">⑥ 说明</button>
+        </nav>
+
+        <div class="fw-panes">
+
+          <!-- ─────────── ① 书库 ─────────── -->
+          <section class="fw-pane" id="fw-pane-kb">
+            <div class="fw-pane-title">① 书库
+              <span class="fw-hint">一本书 = 一份知识库，可以跨很多个对话使用</span>
+            </div>
+
+            <div class="fw-field">
+              <div class="fw-label">当前书</div>
+              <div class="fw-row">
+                <select id="fw-story-select" class="text_pole"></select>
+                <input id="fw-story-delete" class="menu_button" type="button" value="删除这本书" />
+              </div>
+            </div>
+
+            <div class="fw-field">
+              <div class="fw-label">新建一本书</div>
+              <div class="fw-row">
+                <input id="fw-story-title" class="text_pole" type="text" placeholder="书名（可留空，导入 TXT 时自动用文件名）" />
+                <input id="fw-story-create" class="menu_button" type="button" value="新建" />
+              </div>
+            </div>
+
+            <div class="fw-field">
+              <div class="fw-label">导入原著 TXT（第一次用从这里开始）</div>
+              <div class="fw-row">
+                <input id="fw-txt-file" type="file" accept=".txt,text/plain" />
+              </div>
+              <div class="fw-row">
+                <label>分段大小（字）</label>
+                <input id="fw-chunk-size" class="text_pole" type="number" min="2000" max="200000" step="1000" value="60000" />
+                <span class="fw-hint">越小清洗越细、越费 API。6 万字 ≈ 一次洗完一部中篇</span>
+              </div>
+            </div>
+
+            <div class="fw-field">
+              <div class="fw-label">备份 / 换机器</div>
+              <div class="fw-row">
+                <input id="fw-export" class="menu_button" type="button" value="导出全部（JSON）" />
+                <input id="fw-import-file" type="file" accept=".json" style="display:none" />
+                <input id="fw-import-btn" class="menu_button" type="button" value="导入 JSON" />
+                <span class="fw-hint">书库存在浏览器 localStorage 里，清缓存会丢 → 定期导出</span>
+              </div>
+            </div>
+          </section>
+
+          <!-- ─────────── ② 清洗 ─────────── -->
+          <section class="fw-pane" id="fw-pane-clean">
+            <div class="fw-pane-title">② 清洗
+              <span class="fw-hint">把原文逐段喂给模型，抽成「节点 / 角色 / 世界设定」</span>
+            </div>
+
+            <div class="fw-field">
+              <div class="fw-label">清洗 / 总结 / 润色 共用这一套 API（OpenAI 兼容）</div>
+              <div class="fw-row">
+                <input id="fw-api-url" class="text_pole" type="text" placeholder="https://api.example.com/v1/chat/completions" />
+              </div>
+              <div class="fw-row">
+                <input id="fw-api-key" class="text_pole" type="password" placeholder="API Key" />
+                <input id="fw-api-model" class="text_pole" type="text" placeholder="模型名，例：gpt-4o-mini" />
+              </div>
+              <div class="fw-hint">地址填到 /chat/completions 为止；只填到 /v1 也会自动补全</div>
+            </div>
+
+            <div class="fw-field">
+              <div class="fw-label">开始清洗</div>
+              <div class="fw-row">
+                <input id="fw-clean-btn" class="menu_button" type="button" value="开始清洗（未完成的段）" />
+                <input id="fw-clean-stop" class="menu_button" type="button" value="停止" />
+              </div>
+              <div class="fw-msg" id="fw-clean-msg"></div>
+              <div class="fw-hint">可以随时停；失败的分段会记下原因，下次点「开始清洗」自动补跑，不会重复花钱</div>
+            </div>
+          </section>
+
+          <!-- ─────────── ③ 注入 ─────────── -->
+          <section class="fw-pane" id="fw-pane-inject">
+            <div class="fw-pane-title">③ 注入
+              <span class="fw-hint">聊天时把知识库塞进提示词，让 AI「知道前情」</span>
+            </div>
+
+            <div class="fw-field">
+              <div class="fw-label">注入位置</div>
+              <div class="fw-row">
+                <select id="fw-inj-pos" class="text_pole">
+                  <option value="in_prompt">并进主提示（推荐，最稳）</option>
+                  <option value="in_chat">聊天内（按深度插入）</option>
+                </select>
+                <label>深度</label>
+                <input id="fw-inj-depth" class="text_pole" type="number" min="0" max="30" value="4" />
+                <span class="fw-hint">只有「聊天内」模式用得到：0 = 贴着最新一条消息</span>
+              </div>
+            </div>
+
+            <div class="fw-field">
+              <div class="fw-label">单轮预算（token）</div>
+              <div class="fw-row">
+                <input id="fw-inj-budget" class="text_pole" type="number" min="256" max="200000" step="1000" value="32000" />
+                <span class="fw-hint">超预算会按优先级丢内容（先丢旧总结 / 文风，再丢旧节点）</span>
+              </div>
+            </div>
+
+            <div class="fw-field">
+              <div class="fw-row">
+                <label class="checkbox_label fw-wide">
+                  <input type="checkbox" id="fw-future-enabled" />
+                  <span>把「下一个剧情节点」也注入当预告（能防写偏，但算剧透）</span>
+                </label>
+              </div>
+            </div>
+
+            <div class="fw-field">
+              <div class="fw-label">先看清再聊</div>
+              <div class="fw-row">
+                <input id="fw-preview-btn" class="menu_button" type="button" value="预览本轮注入" />
+                <span class="fw-hint">预览不发请求，只算出「这一轮会塞什么、占多少 token」</span>
+              </div>
+              <pre class="fw-preview" id="fw-preview"></pre>
+            </div>
+          </section>
+
+          <!-- ─────────── ④ 进度 ─────────── -->
+          <section class="fw-pane" id="fw-pane-progress">
+            <div class="fw-pane-title">④ 进度
+              <span class="fw-hint">告诉它「演到哪了」，注入就只喂到这一段为止</span>
+            </div>
+
+            <div class="fw-field">
+              <div class="fw-row">
+                <label>阶段</label>
+                <input id="fw-stage-idx" class="text_pole" type="number" min="1" value="1" />
+                <label>节点序号</label>
+                <input id="fw-node-idx" class="text_pole" type="number" min="-1" value="-1" />
+                <input id="fw-advance" class="menu_button" type="button" value="推进一个节点" />
+              </div>
+            </div>
+
+            <div class="fw-field">
+              <div class="fw-label">怎么用</div>
+              <div class="fw-hint fw-help-list">
+                · 节点序号 -1 = 还没开始，只注入人设 / 世界设定 / 早期设定<br />
+                · 每演完一段原著剧情，点一次「推进一个节点」（在聊天里演过也算）<br />
+                · 阶段变化时手动改「阶段」；注入会跟着阶段过滤，避免剧透太远<br />
+                · 进度存在「对话」里，书本身不受影响：同一本书换对话可以各自演不同进度
+              </div>
+            </div>
+
+            <div class="fw-field">
+              <div class="fw-label">当前这本书的统计（在窗口底部，随时可见）</div>
+              <div class="fw-hint">段数 / 已清洗 / 节点 / 角色 / 世界设定 / 伏笔 / 当前进度都显示在工作台底栏</div>
+            </div>
+          </section>
+
+          <!-- ─────────── ⑤ 续写 ─────────── -->
+          <section class="fw-pane" id="fw-pane-write">
+            <div class="fw-pane-title">⑤ 续写
+              <span class="fw-hint">和聊天注入共用同一份记忆 —— 演的和写的永远是同一本书</span>
+            </div>
+
+            <div class="fw-field">
+              <div class="fw-row">
+                <label>分支数</label>
+                <input id="fw-branch-count" class="text_pole" type="number" min="1" max="3" value="1" />
+                <label>目标字数</label>
+                <input id="fw-target-words" class="text_pole" type="number" min="100" max="4000" step="100" value="800" />
+                <span class="fw-hint">分支 2~3 个 = 一次给出多种走向，挑一个用</span>
+              </div>
+            </div>
+
+            <div class="fw-field">
+              <div class="fw-label">定向要求（可留空）</div>
+              <div class="fw-row">
+                <input id="fw-instruction" class="text_pole" type="text" placeholder="例：让男主发现线索，但别立刻揭晓；这段不要打斗" />
+              </div>
+            </div>
+
+            <div class="fw-field">
+              <div class="fw-row">
+                <input id="fw-continue-btn" class="menu_button" type="button" value="AI 续写" />
+                <input id="fw-polish-btn" class="menu_button" type="button" value="润色草稿（去 AI 味）" />
+                <input id="fw-draft-clear" class="menu_button" type="button" value="清空草稿" />
+              </div>
+              <div class="fw-msg" id="fw-write-msg"></div>
+              <div class="fw-hint">续写用的是酒馆「当前模型」（不是②里的清洗 API）；草稿为空时取最后一条 AI 消息当上下文</div>
+            </div>
+
+            <div class="fw-field">
+              <div class="fw-label">生成结果</div>
+              <div class="fw-branches" id="fw-branches"></div>
+            </div>
+
+            <div class="fw-field">
+              <div class="fw-label">草稿（自动保存，跟书走）</div>
+              <textarea id="fw-draft" class="text_pole" rows="8" placeholder="续写结果会追加到这里；可以手改，改完点「填入输入框」自己发送"></textarea>
+            </div>
+          </section>
+
+          <!-- ─────────── ⑥ 说明 ─────────── -->
+          <section class="fw-pane" id="fw-pane-help">
+            <div class="fw-pane-title">⑥ 说明 <span class="fw-hint">第一次用跟着这四步走</span></div>
+
+            <div class="fw-field">
+              <div class="fw-label">四步跑通</div>
+              <div class="fw-hint fw-help-list">
+                1. ① 书库 → 选 TXT 导入（自动切段、识别章节）<br />
+                2. ② 清洗 → 填 API 地址 / Key / 模型 → 点「开始清洗」，等它逐段跑完<br />
+                3. ③ 注入 → 点「预览本轮注入」看一眼 → 回聊天正常聊，知识会自动进提示词<br />
+                4. ④ 每演完一段原著就点「推进一个节点」；⑤ 想自己写就点「AI 续写」
+              </div>
+            </div>
+
+            <div class="fw-field">
+              <div class="fw-label">它怎么工作（一句话）</div>
+              <div class="fw-hint fw-help-list">
+                你的 TXT 被清洗成「剧情节点 + 角色设定 + 世界设定 + 总结 + 伏笔」，<br />
+                聊天时按 token 预算裁好后并进**第一条 system 提示词**（不新增 system 消息，Claude / Gemini 才不会报错），<br />
+                续写时用的是同一份内容 —— 所以演的和写的不会互相打脸。
+              </div>
+            </div>
+
+            <div class="fw-field">
+              <div class="fw-label">省钱 &amp; 防坑</div>
+              <div class="fw-hint fw-help-list">
+                · 清洗是唯一花钱的大头，按段计费；分段调大 = 省钱但抽得粗<br />
+                · 取消顶部「启用注入」= 完全不注入、不发任何请求（续写按钮仍可用）<br />
+                · 书存在 localStorage：清浏览器缓存会丢，记得在 ① 导出 JSON 备份<br />
+                · 聊天注入只影响提示词，不改你的聊天记录；草稿也只存在书里
+              </div>
+            </div>
+          </section>
+
         </div>
       </div>
 
-      <!-- 导入原文 -->
-      <div class="fw-section">
-        <div class="fw-section-title">② 导入原文（TXT）</div>
-        <div class="fw-row">
-          <input id="fw-txt-file" type="file" accept=".txt,text/plain" />
-        </div>
-        <div class="fw-row">
-          <label>分段大小（字）</label>
-          <input id="fw-chunk-size" class="text_pole" type="number" min="2000" max="200000" step="1000" value="60000" style="width:110px" />
-          <span class="fw-hint">越小清洗越细，越费 API</span>
-        </div>
+      <div class="fw-workshop-foot">
+        <div class="fw-stats" id="fw-stats"></div>
       </div>
-
-      <!-- 清洗 API -->
-      <div class="fw-section">
-        <div class="fw-section-title">③ 清洗 / 总结 API（OpenAI 兼容）</div>
-        <div class="fw-row">
-          <input id="fw-api-url" class="text_pole" type="text" placeholder="https://api.example.com/v1/chat/completions" />
-        </div>
-        <div class="fw-row">
-          <input id="fw-api-key" class="text_pole" type="password" placeholder="API Key" />
-          <input id="fw-api-model" class="text_pole" type="text" placeholder="模型名" style="max-width:150px" />
-        </div>
-        <div class="fw-row">
-          <input id="fw-clean-btn" class="menu_button" type="button" value="开始清洗（未完成的段）" />
-          <input id="fw-clean-stop" class="menu_button" type="button" value="停止" />
-        </div>
-        <div class="fw-msg" id="fw-clean-msg"></div>
-      </div>
-
-      <!-- 注入设置 -->
-      <div class="fw-section">
-        <div class="fw-section-title">④ 注入设置</div>
-        <div class="fw-row">
-          <label>位置</label>
-          <select id="fw-inj-pos" class="text_pole">
-            <option value="in_prompt">并进主提示（推荐）</option>
-            <option value="in_chat">聊天内</option>
-          </select>
-          <label>深度</label>
-          <input id="fw-inj-depth" class="text_pole" type="number" min="0" max="30" value="4" style="width:70px" />
-        </div>
-        <div class="fw-row">
-          <label>单轮预算（token）</label>
-          <input id="fw-inj-budget" class="text_pole" type="number" min="256" max="200000" step="1000" value="32000" style="width:110px" />
-        </div>
-        <div class="fw-row">
-          <label class="checkbox_label">
-            <input type="checkbox" id="fw-future-enabled" />
-            <span>注入「下一个剧情节点」当预告（防写偏，但算剧透）</span>
-          </label>
-        </div>
-        <div class="fw-row">
-          <input id="fw-preview-btn" class="menu_button" type="button" value="预览本轮注入" />
-        </div>
-        <pre class="fw-preview" id="fw-preview"></pre>
-      </div>
-
-      <!-- 进度 -->
-      <div class="fw-section">
-        <div class="fw-section-title">⑤ 进度（穿书/演到哪了）</div>
-        <div class="fw-row">
-          <label>阶段</label>
-          <input id="fw-stage-idx" class="text_pole" type="number" min="1" value="1" style="width:70px" />
-          <label>节点序号</label>
-          <input id="fw-node-idx" class="text_pole" type="number" min="-1" value="-1" style="width:70px" />
-          <input id="fw-advance" class="menu_button" type="button" value="推进一个节点" />
-        </div>
-      </div>
-
-      <!-- 续写 -->
-      <div class="fw-section">
-        <div class="fw-section-title">⑥ 续写（与注入共用同一份记忆）</div>
-        <div class="fw-row">
-          <label>分支数</label>
-          <input id="fw-branch-count" class="text_pole" type="number" min="1" max="3" value="1" style="width:70px" />
-          <label>目标字数</label>
-          <input id="fw-target-words" class="text_pole" type="number" min="100" max="4000" step="100" value="800" style="width:90px" />
-        </div>
-        <div class="fw-row">
-          <input id="fw-instruction" class="text_pole" type="text" placeholder="定向要求（可留空），例：让男主发现线索，别立刻揭晓" />
-        </div>
-        <div class="fw-row">
-          <input id="fw-continue-btn" class="menu_button" type="button" value="AI 续写" />
-          <input id="fw-polish-btn" class="menu_button" type="button" value="润色草稿" />
-          <input id="fw-draft-clear" class="menu_button" type="button" value="清空草稿" />
-        </div>
-        <div class="fw-msg" id="fw-write-msg"></div>
-        <div class="fw-branches" id="fw-branches"></div>
-        <textarea id="fw-draft" class="text_pole" rows="6" placeholder="续写结果会追加到这里；可手动修改后再插入聊天"></textarea>
-      </div>
-
-      <div class="fw-stats" id="fw-stats"></div>
     </div>
   </div>
 </div>

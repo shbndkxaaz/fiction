@@ -201,15 +201,34 @@ function renderStorySelect() {
     if (activeId) select.value = activeId;
 }
 
+/** 入口卡片 + 工作台标题栏的状态摘要（没有书时也要给出「下一步做什么」） */
+function renderHeaderStatus(s, p) {
+    const info = el('fw-launcher-info');
+    const sub = el('fw-workshop-sub');
+    if (!s) {
+        if (info) info.textContent = '还没有书：打开工作台 → ① 书库 → 导入 TXT 就能开始。';
+        if (sub) sub.textContent = '未选书';
+        return;
+    }
+    const off = cfg().enabled ? '' : '（注入已关闭）';
+    if (sub) sub.textContent = `《${s.title}》 · 第 ${p.stageIdx} 阶段 / 节点 ${p.nodeIdx}${off}`;
+    if (info) {
+        info.textContent = `《${s.title}》 ${s.totalChars} 字 · 节点 ${s.nodes} · 已清洗 ${s.chunksDone}/${s.chunks} 段\n`
+            + `进度：第 ${p.stageIdx} 阶段 / 节点 ${p.nodeIdx}${off}`;
+    }
+}
+
 function renderStats() {
     const box = el('fw-stats');
     if (!box) return;
     if (!story) {
+        renderHeaderStatus(null);
         box.textContent = '还没有打开的书。先新建，然后导入 TXT。';
         return;
     }
     const s = fwStoryStats(story);
     const p = getProgress();
+    renderHeaderStatus(s, p);
     box.textContent = [
         `《${s.title}》 ${s.totalChars} 字 / ${s.chapters} 章 / ${s.chunks} 段（已清洗 ${s.chunksDone}）`,
         `节点 ${s.nodes} · 角色 ${s.chars} · 世界设定 ${s.world} · 阶段 ${s.stages} · 总结 ${s.summaries} · 伏笔 ${s.foreshadows}`,
@@ -604,6 +623,48 @@ async function importAllStories(file) {
     }
 }
 
+// ─────────────────────────── 工作台（全屏界面） ───────────────────────────
+
+/**
+ * 分页顺序 = 左侧导航顺序。加新分页要同时改三处：
+ * template.html 里的 `fw-nav-x`、`fw-pane-x`，以及这个数组。
+ */
+const FW_PANES = ['kb', 'clean', 'inject', 'progress', 'write', 'help'];
+
+/** 上次打开的分页（关闭工作台后保留，下次还停在这一页） */
+let currentPane = FW_PANES[0];
+
+/** 一次只点亮一个分页；用 style 而不是 classList，假 DOM 里也能跑 */
+function showPane(name) {
+    const target = FW_PANES.includes(name) ? name : FW_PANES[0];
+    FW_PANES.forEach(p => {
+        const pane = el(`fw-pane-${p}`);
+        if (pane) pane.style.display = p === target ? 'block' : 'none';
+        const nav = el(`fw-nav-${p}`);
+        if (nav) nav.className = p === target ? 'fw-nav-item is-active' : 'fw-nav-item';
+    });
+    return target;
+}
+
+function isWorkshopOpen() {
+    return el('fw-workshop')?.style?.display === 'flex';
+}
+
+function openWorkshop(pane) {
+    const box = el('fw-workshop');
+    if (!box) return;
+    box.style.display = 'flex';
+    currentPane = showPane(pane || currentPane);
+    renderStats();
+}
+
+function closeWorkshop() {
+    const box = el('fw-workshop');
+    if (!box) return;
+    persistDraft();
+    box.style.display = 'none';
+}
+
 function bindPanelEvents() {
     const on = (id, evt, fn) => el(id)?.addEventListener(evt, fn);
 
@@ -683,6 +744,14 @@ function bindPanelEvents() {
         setMsg('fw-write-msg', '草稿已清空。');
     });
     on('fw-draft', 'input', scheduleDraftSave);
+
+    // 工作台：开关 + 分页切换（分页按钮用模板里的固定 id，静态扫描也查得到）
+    on('fw-open-workshop', 'click', () => openWorkshop());
+    on('fw-close-workshop', 'click', closeWorkshop);
+    on('fw-workshop-mask', 'click', closeWorkshop);
+    FW_PANES.forEach(p => on(`fw-nav-${p}`, 'click', () => {
+        currentPane = showPane(p);
+    }));
 }
 
 // ─────────────────────────── 初始化 ───────────────────────────
@@ -705,10 +774,18 @@ async function init() {
     }
     const holder = document.createElement('div');
     holder.innerHTML = html;
+    // 抽屉里只留入口卡片：先整体挂进设置容器，再把全屏工作台搬到 body。
+    // 不搬的话，抽屉一关闭（或容器有 overflow / transform），全屏层会跟着被隐藏或裁切。
     host.appendChild(holder.firstElementChild || holder);
+    const overlay = el('fw-workshop');
+    if (overlay && document.body) document.body.appendChild(overlay);
 
     syncSettingsToUI();
     bindPanelEvents();
+    showPane('kb');
+    document.addEventListener('keydown', evt => {
+        if (evt?.key === 'Escape' && isWorkshopOpen()) closeWorkshop();
+    });
     registerChatHooks();
 
     const activeId = fwGetActiveStoryId();
